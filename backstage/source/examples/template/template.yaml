@@ -1,0 +1,231 @@
+---
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: update-kubernetes-manifest
+  title: Update Kubernetes Manifest
+  labels:
+    target: component
+  description: A template to update a claim manifest in Git based on the registered OpenAPI Schema of the XRD
+spec:
+  owner: user:guest
+  type: service
+  parameters:
+    - title: Entity Selection
+      required:
+        - entity
+      properties:
+        entity:
+          title: Entity
+          type: string
+          description: Select the entity to update
+          ui:field: EntityPicker
+          ui:options:
+            catalogFilter:
+              - kind: Component
+        sourceFileUrl:
+          title: Source File URL
+          type: string
+          description: Override the source file URL (optional - only needed if entity doesn't have terasky.backstage.io/source-file-url annotation)
+    - title: GitOps Manifest Updater
+      required:
+        - gitOpsManifestUpdater
+      properties:
+        gitOpsManifestUpdater:
+          title: GitOps Manifest Updater
+          type: object
+          ui:field: GitOpsManifestUpdater
+  steps:
+    - id: get-entity
+      name: Get Entity
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.entity }}
+
+    - id: get-annotation-url
+      name: Get Annotation URL
+      action: roadiehq:utils:jsonata
+      input:
+        data: 
+          annotations: ${{ steps['get-entity'].output.entity.metadata.annotations }}
+        expression: |
+          annotations."terasky.backstage.io/source-file-url"
+
+    - id: resolve-url
+      name: Resolve URL
+      action: roadiehq:utils:jsonata
+      input:
+        data: 
+          sourceFileUrl: ${{ parameters.sourceFileUrl }}
+          annotationUrl: ${{ steps['get-annotation-url'].output.result }}
+        expression: |
+          $exists(sourceFileUrl) ? sourceFileUrl : annotationUrl
+
+    - id: validate-url
+      name: Validate URL
+      action: roadiehq:utils:jsonata
+      input:
+        data: ${{ steps['resolve-url'].output.result }}
+        expression: |
+          $string($) ? $ : $error("No source URL provided. Please either add the terasky.backstage.io/source-file-url annotation to the entity or provide a sourceFileUrl parameter")
+
+    - id: get-filepath
+      name: Get File Path
+      action: roadiehq:utils:jsonata
+      input:
+        data: ${{ steps['validate-url'].output.result }}
+        expression: |
+          $join($filter($split($, "/"), function($v, $i) { $i >= 7}), "/")
+
+    - id: fetch-base
+      name: Fetch Current Manifest
+      action: fetch:plain:file
+      input:
+        url: ${{ steps['validate-url'].output.result }}
+        targetPath: ${{ steps['get-filepath'].output.result }}
+
+    - id: serialize-patch
+      name: Evaluate Changes
+      action: roadiehq:utils:serialize:yaml
+      input:
+        data:
+          spec: ${{ parameters.gitOpsManifestUpdater }}
+
+    - id: merge-patch
+      name: Merge Changes
+      action: roadiehq:utils:merge
+      input:
+        path: ${{ steps['get-filepath'].output.result }}
+        content: ${{ steps['serialize-patch'].output.serialized }}
+
+    - id: read-file
+      name: Read File
+      action: roadiehq:utils:fs:parse
+      input:
+        path: ${{ steps['get-filepath'].output.result }}
+
+    - id: parse-url
+      name: Parse URL for PR
+      action: roadiehq:utils:jsonata
+      input:
+        data: ${{ steps['validate-url'].output.result }}
+        expression: |
+          {
+            "owner": $split($, "/")[3],
+            "repo": $split($, "/")[4],
+            "branch": $split($, "/")[6]
+          }
+
+    - id: format-branch-name
+      name: Format Branch Name
+      action: roadiehq:utils:jsonata
+      input:
+        data: ${{ steps['validate-url'].output.result }}
+        expression: |
+          "backstage-sourced-update-" & $join($filter($split($, "/"), function($v, $i) { $i >= 7}), "-")
+
+    - id: create-pull-request
+      name: create-pull-request
+      action: publish:github:pull-request
+      input:
+        repoUrl: ${{ 'github.com?owner=' + steps['parse-url'].output.result.owner + '&repo=' + steps['parse-url'].output.result.repo }}
+        branchName: ${{ steps['format-branch-name'].output.result }}
+        title: Updating Kubernetes YAML for ${{ steps['get-entity'].output.entity.metadata.name }}
+        description: Updating Kubernetes YAML for ${{ steps['get-entity'].output.entity.metadata.name }}
+        targetBranchName: ${{ steps['parse-url'].output.result.branch }}
+
+  output:
+    links:
+      - title: Pull Request
+        url: ${{ steps['create-pull-request'].output.remoteUrl }}
+      - title: Download YAML Manifest
+        url: data:application/yaml;charset=utf-8,${{ steps['read-file'].output.content }}
+---
+apiVersion: scaffolder.backstage.io/v1beta3
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-template
+kind: Template
+metadata:
+  name: example-nodejs-template
+  title: Example Node.js Template
+  description: An example template for the scaffolder that creates a simple Node.js service
+spec:
+  owner: user:guest
+  type: service
+
+  # These parameters are used to generate the input form in the frontend, and are
+  # used to gather input data for the execution of the template.
+  parameters:
+    - title: Fill in some steps
+      required:
+        - name
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name of the component
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+    - title: Choose a location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  # These steps are executed in the scaffolder backend, using data that we gathered
+  # via the parameters above.
+  steps:
+    # Each step executes an action, in this case one templates files into the working directory.
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          name: ${{ parameters.name }}
+
+    # This step publishes the contents of the working directory to GitHub.
+    # If you or your organization prefer another default branch name over 'main'
+    # you can change that here.
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        description: This is ${{ parameters.name }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: 'main'
+
+    # The final step is to register our new component in the catalog.
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+    
+    # Let's notify the user that the template has completed using the Notification action
+    - id: notify
+      name: Notify
+      action: notification:send
+      input:
+        recipients: entity
+        entityRefs:
+          - user:default/guest
+        title: 'Template executed'
+        info: 'Your template has been executed'
+        severity: 'normal'
+
+  # Outputs are displayed to the user after a successful execution of the template.
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
