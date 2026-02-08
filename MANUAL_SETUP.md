@@ -45,11 +45,19 @@ helm repo update
 helm install crossplane --namespace crossplane-system --create-namespace crossplane-stable/crossplane
 ```
 
+### Install Envoy Gateway
+```bash
+helm install eg oci://docker.io/envoyproxy/gateway-helm --version v1.3.0 \
+  -n envoy-gateway-system --create-namespace --wait
+kubectl apply -f envoy-gateway/gateway.yaml
+kubectl -n envoy-gateway-system wait --for=condition=Accepted gateway/backstack-gateway --timeout=5m
+```
+
 ### Install ArgoCD
 ```bash
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update
-helm install argocd argo/argo-cd --version 9.2.4 --namespace argocd --create-namespace --wait
+helm install argocd argo/argo-cd --version 9.4.0 --namespace argocd --create-namespace --wait
 ```
 
 ### Configure Crossplane

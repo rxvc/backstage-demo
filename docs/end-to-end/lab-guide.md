@@ -37,9 +37,9 @@ kubectl get all -n argocd
 kubectl get all -n cert-manager
 ```
   
-3. Ingress NGINX
+3. Envoy Gateway
 ```bash
-kubectl get all -n ingress-nginx
+kubectl get all -n envoy-gateway-system
 ```
 
 4. Metrics Server
@@ -682,7 +682,7 @@ A more advanced abstraction for web applications that includes:
 This creates a complete web application stack including:
 - Deployment with HPA (Horizontal Pod Autoscaler)
 - Service
-- Ingress with the specified FQDN
+- HTTPRoute with the specified FQDN
 
 #### 5. Compositions (`05-compositions/`)
 
@@ -691,7 +691,7 @@ Compositions define how to implement the XRDs using managed resources. Each XRD 
 For example, a WebApp composition might create:
 - A Kubernetes Deployment
 - A Kubernetes Service  
-- A Kubernetes Ingress
+- A Kubernetes HTTPRoute
 - A HorizontalPodAutoscaler (if scaling is enabled)
 
 #### 6. Examples (`06-examples/`)
@@ -819,16 +819,16 @@ spec:
     enabled: false  # This would trigger a policy violation
 ```
 
-#### 2. Unique Ingress Host
+#### 2. Unique HTTPRoute Host
 
-**Policy Name:** `unique-ingress-host`  
+**Policy Name:** `unique-httproute-host`
 **File:** `kyverno/unique-ingress-host.yaml`
 
 ```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: unique-ingress-host
+  name: unique-httproute-host
   annotations:
     policies.kyverno.io/category: Sample
     policies.kyverno.io/severity: medium
@@ -845,8 +845,8 @@ spec:
     context:
       - name: hosts
         apiCall:
-          urlPath: "/apis/networking.k8s.io/v1/ingresses"
-          jmesPath: "items[].spec.rules[].host"
+          urlPath: "/apis/gateway.networking.k8s.io/v1/httproutes"
+          jmesPath: "items[].spec.hostnames[]"
     validate:
       message: "The Webapp FQDN must be unique."
       deny:
@@ -859,20 +859,20 @@ spec:
 
 **Purpose:**
 - Prevents FQDN conflicts across WebApp resources
-- Queries existing Ingresses via API call to check for duplicates
+- Queries existing HTTPRoutes via API call to check for duplicates
 - Validates both CREATE and UPDATE operations
 - Category: Sample | Severity: Medium
 
 **How it Works:**
-1. When a WebApp is created/updated, the policy queries all existing Ingress resources
-2. Extracts all hostnames from existing Ingresses
+1. When a WebApp is created/updated, the policy queries all existing HTTPRoute resources
+2. Extracts all hostnames from existing HTTPRoutes
 3. Checks if the WebApp's FQDN is already in use
 4. Denies the request if the FQDN is not unique
 
 **Example Violation:**
 ```yaml
 spec:
-  fqdn: webapp.example.com  # Fails if this hostname is already used by another Ingress
+  fqdn: webapp.example.com  # Fails if this hostname is already used by another HTTPRoute
 ```
 
 #### 3. Deny NGINX Image

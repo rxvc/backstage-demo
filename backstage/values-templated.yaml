@@ -179,17 +179,28 @@ backstage:
     tag: 0.0.3
   replicas: 1
 ingress:
-  annotations:
-    cert-manager.io/cluster-issuer: my-ca-issuer
-  enabled: true
-  host: ${CODESPACE_NAME}-443.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}
-  path: /
-  tls:
-    enabled: true
-    secretName: backstack-tls
-  extraHosts:
-  - name: localhost
+  enabled: false
 extraDeploy:
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: backstage
+  spec:
+    parentRefs:
+    - name: backstack-gateway
+      namespace: envoy-gateway-system
+      sectionName: https
+    hostnames:
+    - ${CODESPACE_NAME}-443.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}
+    - localhost
+    rules:
+    - matches:
+      - path:
+          type: PathPrefix
+          value: /
+      backendRefs:
+      - name: backstack-demo-backstage
+        port: 7007
 - apiVersion: v1
   data:
     config.yaml: |
