@@ -1,5 +1,5 @@
 resources:
-  - https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.6.1/components.yaml
+  - https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.0/components.yaml
 
 patchesJson6902:
   - target:

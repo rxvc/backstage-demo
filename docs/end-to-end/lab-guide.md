@@ -573,7 +573,7 @@ kind: Function
 metadata:
   name: crossplane-contrib-function-go-templating
 spec:
-  package: xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.11.0
+  package: xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.11.1
 ```
 Enables Go template-based resource generation in compositions.
 
@@ -584,7 +584,7 @@ kind: Function
 metadata:
   name: crossplane-contrib-function-kcl
 spec:
-  package: xpkg.crossplane.io/crossplane-contrib/function-kcl:v0.11.5
+  package: xpkg.crossplane.io/crossplane-contrib/function-kcl:v0.12.0
 ```
 Enables KCL (kcl-lang.io) for complex logic in compositions.
 
@@ -601,7 +601,7 @@ kind: Provider
 metadata:
   name: crossplane-contrib-provider-kubernetes
 spec:
-  package: xpkg.crossplane.io/crossplane-contrib/provider-kubernetes:v1.0.0
+  package: xpkg.crossplane.io/crossplane-contrib/provider-kubernetes:v1.1.0
   runtimeConfigRef:
     apiVersion: pkg.crossplane.io/v1beta1
     kind: DeploymentRuntimeConfig

@@ -7,7 +7,7 @@
 5. [node 20](https://nodejs.org/en/download)
 6. [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 
-## Manual Preperation Steps:
+## Manual Preparation Steps:
 1. [Create Github PAT](https://github.com/settings/tokens/new)
 2. [Create Github Oauth App](https://github.com/settings/applications/new)
     * Application Name: Backstage
@@ -36,7 +36,7 @@ kind create cluster --name backstack-demo --config kind/config.yaml
 ```bash
 helm repo add kyverno https://kyverno.github.io/kyverno/
 helm repo update
-helm install kyverno kyverno/kyverno -n kyverno --create-namespace
+helm install kyverno kyverno/kyverno -n kyverno --create-namespace --version 3.7.0
 ```
 ### Install Crossplane
 ```bash
@@ -47,8 +47,9 @@ helm install crossplane --namespace crossplane-system --create-namespace crosspl
 
 ### Install ArgoCD
 ```bash
-kubectl create ns argocd
-kubectl apply -f https://raw.githubusercontent.com/argoproj/argo-cd/refs/heads/master/manifests/install.yaml -n argocd
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+helm install argocd argo/argo-cd --version 9.2.4 --namespace argocd --create-namespace --wait
 ```
 
 ### Configure Crossplane
@@ -56,7 +57,7 @@ kubectl apply -f https://raw.githubusercontent.com/argoproj/argo-cd/refs/heads/m
 kubectl create clusterrolebinding --serviceaccount crossplane-system:crossplane --clusterrole cluster-admin allow-all-resources-crossplane
 kubectl apply -f crossplane/01-functions
 kubectl apply -f crossplane/02-providers
-kubectl wait --for condition=Healthy=true providers.p crossplane-contrib-provider-kubernetes
+kubectl wait --for condition=Healthy=true providers.pkg.crossplane.io crossplane-contrib-provider-kubernetes
 kubectl apply -f crossplane/03-provider-configs
 kubectl apply -f crossplane/04-xrds --recursive
 kubectl apply -f crossplane/05-compositions --recursive
